@@ -1,10 +1,11 @@
 import * as React from 'react';
 import 'sprotty-component/lib/wrapper';
-import {HashRouter as Router, Route, Switch} from "react-router-dom";
+import { Route, RouteComponentProps, Switch, withRouter} from "react-router-dom";
 import {EPackage, ENamedElement} from "./types";
 import DocPage from "./components/DocPage";
 import {getTypes} from "./util";
 import IndexPage from "./components/Index";
+import {UnregisterCallback} from "history";
 
 interface AppState {
   ePackage?: EPackage;
@@ -44,17 +45,35 @@ export interface DocuAppWindow extends Window {
   __docu_app_graph__: any;
 }
 
-class App extends React.Component<any, AppState> {
+class App extends React.Component<RouteComponentProps<any>, AppState> {
+
+  private readonly unregisterListener: UnregisterCallback;
 
   constructor(props: any) {
     super(props);
     this.state = {
       ePackage: undefined,
     };
+
+    this.unregisterListener = this.props.history.listen((location) => {
+      if (this.state.ePackage) {
+        const pathname = location.pathname;
+        document.title = this.state.ePackage.name + (pathname.length > 1 ? "- " + pathname.substring(1) : '')
+      }
+    });
   }
 
+
+  componentWillUnmount() {
+    this.unregisterListener();
+  }
+
+
   componentDidMount() {
-    this.setState({ ePackage: (window as DocuAppWindow).__docu_app_model__ });
+    const ePackage = (window as DocuAppWindow).__docu_app_model__;
+    this.setState({ ePackage  }, () => {
+      document.title = ePackage.name || document.title;
+    });
   }
 
   public render() {
@@ -63,11 +82,9 @@ class App extends React.Component<any, AppState> {
     }
 
     return (
-      <Router>
         <GenerateRoutes ePackage={this.state.ePackage} />
-      </Router>
     );
   }
 }
 
-export default App;
+export default withRouter(App);
